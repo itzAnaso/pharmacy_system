@@ -204,10 +204,10 @@ const Index = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-              © 2024 Pharmacy Management System
+              © 2025 Pharmacy Management System
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-              Developed by M. Abubakkar
+              Developed by TEAM [M.Abubakkar,Amun Masud,Adan Mirza,Ali, Ayesha]
             </p>
           </div>
         </div>

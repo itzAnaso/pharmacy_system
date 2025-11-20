@@ -29,7 +29,7 @@ const NotFound = () => {
         <div className="container mx-auto px-6">
           <div className="text-center">
             <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-              MADE BY M.ABUBAKKAR
+              MADE BY M.ABUBAKKAR AND TEAM
             </p>
           </div>
         </div>

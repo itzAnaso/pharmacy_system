@@ -1,0 +1,672 @@
+================================================================================
+PHARMACY MANAGEMENT SYSTEM - DATABASE SCHEMA & SETUP GUIDE
+================================================================================
+
+This document contains the complete database schema, setup instructions, and SQL
+equivalents for the Pharmacy Management System application.
+
+================================================================================
+DATABASE OVERVIEW
+================================================================================
+
+The application uses IndexedDB (browser-based database) for local storage.
+This document provides SQL equivalents for reference and potential migration
+to a traditional SQL database.
+
+Database Name: pharmacy_db
+Version: 1
+
+================================================================================
+TABLES/COLLECTIONS
+================================================================================
+
+1. products          - Product inventory management
+2. sales              - Sales transactions
+3. sale_items         - Individual items in each sale
+4. customers          - Customer information and debt tracking
+5. payment_history    - Payment and debt transaction history
+6. customer_loans      - Customer loan/debt records
+
+================================================================================
+TABLE SCHEMAS
+================================================================================
+
+--------------------------------------------------------------------------------
+1. PRODUCTS TABLE
+--------------------------------------------------------------------------------
+
+Purpose: Stores all product/inventory information
+
+Fields:
+- id                  VARCHAR(255) PRIMARY KEY
+- user_id             VARCHAR(255) NOT NULL (Indexed)
+- name                VARCHAR(255) NOT NULL (Indexed)
+- category            VARCHAR(100) NOT NULL
+- price               DECIMAL(10, 2) NOT NULL
+- stock_quantity       INTEGER NOT NULL DEFAULT 0
+- description         TEXT
+- expiry_date         DATE
+- created_at          TIMESTAMP NOT NULL
+- updated_at          TIMESTAMP NOT NULL
+- batch_number        VARCHAR(100) (Indexed)
+- cost                DECIMAL(10, 2) NOT NULL
+- manufacturer        VARCHAR(255)
+- minimum_stock       INTEGER NOT NULL DEFAULT 10
+
+SQL CREATE TABLE:
+------------------
+CREATE TABLE products (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    stock_quantity INTEGER NOT NULL DEFAULT 0,
+    description TEXT,
+    expiry_date DATE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    batch_number VARCHAR(100),
+    cost DECIMAL(10, 2) NOT NULL,
+    manufacturer VARCHAR(255),
+    minimum_stock INTEGER NOT NULL DEFAULT 10
+);
+
+CREATE INDEX idx_products_user_id ON products(user_id);
+CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_products_batch_number ON products(batch_number);
+
+--------------------------------------------------------------------------------
+2. SALES TABLE
+--------------------------------------------------------------------------------
+
+Purpose: Stores sales transaction records
+
+Fields:
+- id                  VARCHAR(255) PRIMARY KEY
+- user_id             VARCHAR(255) NOT NULL (Indexed)
+- customer_id         VARCHAR(255) (Indexed, Foreign Key to customers)
+- total_amount        DECIMAL(10, 2) NOT NULL
+- discount            DECIMAL(10, 2) NOT NULL DEFAULT 0
+- payment_method      VARCHAR(50) NOT NULL (cash, card, debt)
+- notes               TEXT
+- created_at          TIMESTAMP NOT NULL (Indexed)
+
+SQL CREATE TABLE:
+------------------
+CREATE TABLE sales (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    customer_id VARCHAR(255),
+    total_amount DECIMAL(10, 2) NOT NULL,
+    discount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    payment_method VARCHAR(50) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_sales_user_id ON sales(user_id);
+CREATE INDEX idx_sales_customer_id ON sales(customer_id);
+CREATE INDEX idx_sales_created_at ON sales(created_at);
+
+--------------------------------------------------------------------------------
+3. SALE_ITEMS TABLE
+--------------------------------------------------------------------------------
+
+Purpose: Stores individual items in each sale transaction
+
+Fields:
+- id                  VARCHAR(255) PRIMARY KEY
+- sale_id             VARCHAR(255) NOT NULL (Indexed, Foreign Key to sales)
+- product_id          VARCHAR(255) NOT NULL (Indexed, Foreign Key to products)
+- quantity            INTEGER NOT NULL
+- unit_price          DECIMAL(10, 2) NOT NULL
+- total_price         DECIMAL(10, 2) NOT NULL
+
+SQL CREATE TABLE:
+------------------
+CREATE TABLE sale_items (
+    id VARCHAR(255) PRIMARY KEY,
+    sale_id VARCHAR(255) NOT NULL,
+    product_id VARCHAR(255) NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL,
+    total_price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
+CREATE INDEX idx_sale_items_product_id ON sale_items(product_id);
+
+--------------------------------------------------------------------------------
+4. CUSTOMERS TABLE
+--------------------------------------------------------------------------------
+
+Purpose: Stores customer information and tracks outstanding balances
+
+Fields:
+- id                  VARCHAR(255) PRIMARY KEY
+- user_id             VARCHAR(255) NOT NULL (Indexed)
+- name                VARCHAR(255) NOT NULL (Indexed)
+- email               VARCHAR(255)
+- phone               VARCHAR(50)
+- address             TEXT
+- outstanding_balance DECIMAL(10, 2) NOT NULL DEFAULT 0
+- created_at          TIMESTAMP NOT NULL
+- updated_at          TIMESTAMP NOT NULL
+
+SQL CREATE TABLE:
+------------------
+CREATE TABLE customers (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    address TEXT,
+    outstanding_balance DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_customers_user_id ON customers(user_id);
+CREATE INDEX idx_customers_name ON customers(name);
+
+--------------------------------------------------------------------------------
+5. PAYMENT_HISTORY TABLE
+--------------------------------------------------------------------------------
+
+Purpose: Tracks all payment and debt transactions for customers
+
+Fields:
+- id                  VARCHAR(255) PRIMARY KEY
+- customer_id         VARCHAR(255) NOT NULL (Indexed, Foreign Key to customers)
+- user_id             VARCHAR(255) NOT NULL (Indexed)
+- amount              DECIMAL(10, 2) NOT NULL (positive for payments, negative for debt)
+- notes               TEXT
+- created_at          TIMESTAMP NOT NULL (Indexed)
+- payment_date        DATE NOT NULL
+
+SQL CREATE TABLE:
+------------------
+CREATE TABLE payment_history (
+    id VARCHAR(255) PRIMARY KEY,
+    customer_id VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    payment_date DATE NOT NULL,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_payment_history_customer_id ON payment_history(customer_id);
+CREATE INDEX idx_payment_history_user_id ON payment_history(user_id);
+CREATE INDEX idx_payment_history_created_at ON payment_history(created_at);
+
+--------------------------------------------------------------------------------
+6. CUSTOMER_LOANS TABLE
+--------------------------------------------------------------------------------
+
+Purpose: Tracks customer loans/debt records linked to sales
+
+Fields:
+- id                  VARCHAR(255) PRIMARY KEY
+- customer_id         VARCHAR(255) NOT NULL (Indexed, Foreign Key to customers)
+- sale_id             VARCHAR(255) (Indexed, Foreign Key to sales)
+- amount              DECIMAL(10, 2) NOT NULL
+- remaining_balance   DECIMAL(10, 2) NOT NULL
+- notes               TEXT
+- created_at          TIMESTAMP NOT NULL
+
+SQL CREATE TABLE:
+------------------
+CREATE TABLE customer_loans (
+    id VARCHAR(255) PRIMARY KEY,
+    customer_id VARCHAR(255) NOT NULL,
+    sale_id VARCHAR(255),
+    amount DECIMAL(10, 2) NOT NULL,
+    remaining_balance DECIMAL(10, 2) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_customer_loans_customer_id ON customer_loans(customer_id);
+CREATE INDEX idx_customer_loans_sale_id ON customer_loans(sale_id);
+
+================================================================================
+COMMON QUERIES & OPERATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+1. PRODUCT OPERATIONS
+--------------------------------------------------------------------------------
+
+-- Get all products for a user
+SELECT * FROM products 
+WHERE user_id = 'user_id' 
+ORDER BY created_at DESC;
+
+-- Get products with low stock
+SELECT * FROM products 
+WHERE user_id = 'user_id' 
+AND stock_quantity <= minimum_stock;
+
+-- Get expired products
+SELECT * FROM products 
+WHERE user_id = 'user_id' 
+AND expiry_date <= CURRENT_DATE;
+
+-- Add new product
+INSERT INTO products (
+    id, user_id, name, category, price, stock_quantity, 
+    description, expiry_date, batch_number, cost, manufacturer, minimum_stock,
+    created_at, updated_at
+) VALUES (
+    'product_id', 'user_id', 'Product Name', 'Category', 100.00, 50,
+    'Description', '2024-12-31', 'BATCH001', 80.00, 'Manufacturer', 10,
+    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+-- Update product
+UPDATE products 
+SET 
+    name = 'New Name',
+    price = 120.00,
+    stock_quantity = 45,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 'product_id' AND user_id = 'user_id';
+
+-- Delete product
+DELETE FROM products 
+WHERE id = 'product_id' AND user_id = 'user_id';
+
+--------------------------------------------------------------------------------
+2. SALES OPERATIONS
+--------------------------------------------------------------------------------
+
+-- Create a new sale
+INSERT INTO sales (
+    id, user_id, customer_id, total_amount, discount, 
+    payment_method, notes, created_at
+) VALUES (
+    'sale_id', 'user_id', 'customer_id', 500.00, 0.00,
+    'cash', 'Sale notes', CURRENT_TIMESTAMP
+);
+
+-- Get sales for a user
+SELECT * FROM sales 
+WHERE user_id = 'user_id' 
+ORDER BY created_at DESC;
+
+-- Get today's sales
+SELECT * FROM sales 
+WHERE user_id = 'user_id' 
+AND DATE(created_at) = CURRENT_DATE;
+
+-- Get sales for a customer
+SELECT * FROM sales 
+WHERE customer_id = 'customer_id' 
+AND user_id = 'user_id'
+ORDER BY created_at DESC;
+
+-- Get sales with items
+SELECT 
+    s.*,
+    si.product_id,
+    si.quantity,
+    si.unit_price,
+    si.total_price,
+    p.name as product_name
+FROM sales s
+LEFT JOIN sale_items si ON s.id = si.sale_id
+LEFT JOIN products p ON si.product_id = p.id
+WHERE s.user_id = 'user_id'
+ORDER BY s.created_at DESC;
+
+--------------------------------------------------------------------------------
+3. SALE ITEMS OPERATIONS
+--------------------------------------------------------------------------------
+
+-- Add items to a sale
+INSERT INTO sale_items (
+    id, sale_id, product_id, quantity, unit_price, total_price
+) VALUES 
+    ('item_id_1', 'sale_id', 'product_id_1', 2, 50.00, 100.00),
+    ('item_id_2', 'sale_id', 'product_id_2', 1, 75.00, 75.00);
+
+-- Get items for a sale
+SELECT 
+    si.*,
+    p.name as product_name,
+    p.category
+FROM sale_items si
+JOIN products p ON si.product_id = p.id
+WHERE si.sale_id = 'sale_id';
+
+--------------------------------------------------------------------------------
+4. CUSTOMER OPERATIONS
+--------------------------------------------------------------------------------
+
+-- Add new customer
+INSERT INTO customers (
+    id, user_id, name, email, phone, address,
+    outstanding_balance, created_at, updated_at
+) VALUES (
+    'customer_id', 'user_id', 'Customer Name', 'email@example.com',
+    '1234567890', 'Address', 0.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+);
+
+-- Get all customers
+SELECT * FROM customers 
+WHERE user_id = 'user_id' 
+ORDER BY created_at DESC;
+
+-- Get customers with outstanding balance
+SELECT * FROM customers 
+WHERE user_id = 'user_id' 
+AND outstanding_balance > 0
+ORDER BY outstanding_balance DESC;
+
+-- Update customer balance
+UPDATE customers 
+SET 
+    outstanding_balance = outstanding_balance + 100.00,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 'customer_id' AND user_id = 'user_id';
+
+-- Record payment (decrease balance)
+UPDATE customers 
+SET 
+    outstanding_balance = GREATEST(0, outstanding_balance - 50.00),
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 'customer_id' AND user_id = 'user_id';
+
+--------------------------------------------------------------------------------
+5. PAYMENT HISTORY OPERATIONS
+--------------------------------------------------------------------------------
+
+-- Record a payment
+INSERT INTO payment_history (
+    id, customer_id, user_id, amount, notes, 
+    created_at, payment_date
+) VALUES (
+    'payment_id', 'customer_id', 'user_id', 50.00,
+    'Payment received', CURRENT_TIMESTAMP, CURRENT_DATE
+);
+
+-- Record debt (negative amount)
+INSERT INTO payment_history (
+    id, customer_id, user_id, amount, notes,
+    created_at, payment_date
+) VALUES (
+    'payment_id', 'customer_id', 'user_id', -100.00,
+    'Debt added', CURRENT_TIMESTAMP, CURRENT_DATE
+);
+
+-- Get payment history for a customer
+SELECT * FROM payment_history 
+WHERE customer_id = 'customer_id' 
+AND user_id = 'user_id'
+ORDER BY created_at DESC;
+
+--------------------------------------------------------------------------------
+6. CUSTOMER LOANS OPERATIONS
+--------------------------------------------------------------------------------
+
+-- Create a loan record
+INSERT INTO customer_loans (
+    id, customer_id, sale_id, amount, remaining_balance,
+    notes, created_at
+) VALUES (
+    'loan_id', 'customer_id', 'sale_id', 500.00, 500.00,
+    'Loan for sale', CURRENT_TIMESTAMP
+);
+
+-- Get loans for a customer
+SELECT * FROM customer_loans 
+WHERE customer_id = 'customer_id'
+ORDER BY created_at DESC;
+
+-- Update remaining balance
+UPDATE customer_loans 
+SET remaining_balance = remaining_balance - 100.00
+WHERE id = 'loan_id';
+
+================================================================================
+REPORTING QUERIES
+================================================================================
+
+--------------------------------------------------------------------------------
+1. DASHBOARD STATISTICS
+--------------------------------------------------------------------------------
+
+-- Today's revenue
+SELECT COALESCE(SUM(total_amount), 0) as todays_revenue
+FROM sales
+WHERE user_id = 'user_id'
+AND DATE(created_at) = CURRENT_DATE;
+
+-- Total products count
+SELECT COUNT(*) as total_products
+FROM products
+WHERE user_id = 'user_id';
+
+-- Low stock products count
+SELECT COUNT(*) as low_stock_count
+FROM products
+WHERE user_id = 'user_id'
+AND stock_quantity < minimum_stock;
+
+-- Expired products count
+SELECT COUNT(*) as expired_count
+FROM products
+WHERE user_id = 'user_id'
+AND expiry_date <= CURRENT_DATE;
+
+-- Total customers count
+SELECT COUNT(*) as total_customers
+FROM customers
+WHERE user_id = 'user_id';
+
+--------------------------------------------------------------------------------
+2. SALES REPORTS
+--------------------------------------------------------------------------------
+
+-- Sales by date range
+SELECT 
+    DATE(created_at) as sale_date,
+    COUNT(*) as total_sales,
+    SUM(total_amount) as total_revenue,
+    AVG(total_amount) as average_sale
+FROM sales
+WHERE user_id = 'user_id'
+AND created_at >= '2024-01-01'
+AND created_at <= '2024-12-31'
+GROUP BY DATE(created_at)
+ORDER BY sale_date DESC;
+
+-- Top selling products
+SELECT 
+    p.name,
+    p.category,
+    SUM(si.quantity) as total_quantity_sold,
+    SUM(si.total_price) as total_revenue
+FROM sale_items si
+JOIN products p ON si.product_id = p.id
+JOIN sales s ON si.sale_id = s.id
+WHERE s.user_id = 'user_id'
+AND s.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
+GROUP BY p.id, p.name, p.category
+ORDER BY total_quantity_sold DESC
+LIMIT 10;
+
+-- Sales by payment method
+SELECT 
+    payment_method,
+    COUNT(*) as transaction_count,
+    SUM(total_amount) as total_amount
+FROM sales
+WHERE user_id = 'user_id'
+AND created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
+GROUP BY payment_method;
+
+--------------------------------------------------------------------------------
+3. INVENTORY REPORTS
+--------------------------------------------------------------------------------
+
+-- Products by category
+SELECT 
+    category,
+    COUNT(*) as product_count,
+    SUM(stock_quantity) as total_stock,
+    SUM(stock_quantity * price) as total_value
+FROM products
+WHERE user_id = 'user_id'
+GROUP BY category
+ORDER BY product_count DESC;
+
+-- Products expiring soon (next 30 days)
+SELECT *
+FROM products
+WHERE user_id = 'user_id'
+AND expiry_date BETWEEN CURRENT_DATE AND DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY)
+ORDER BY expiry_date ASC;
+
+-- Low stock products with details
+SELECT *
+FROM products
+WHERE user_id = 'user_id'
+AND stock_quantity <= minimum_stock
+ORDER BY stock_quantity ASC;
+
+--------------------------------------------------------------------------------
+4. CUSTOMER REPORTS
+--------------------------------------------------------------------------------
+
+-- Customers with highest debt
+SELECT 
+    name,
+    phone,
+    email,
+    outstanding_balance,
+    created_at
+FROM customers
+WHERE user_id = 'user_id'
+AND outstanding_balance > 0
+ORDER BY outstanding_balance DESC
+LIMIT 10;
+
+-- Customer payment summary
+SELECT 
+    c.name,
+    c.outstanding_balance,
+    COUNT(ph.id) as transaction_count,
+    SUM(CASE WHEN ph.amount > 0 THEN ph.amount ELSE 0 END) as total_payments,
+    SUM(CASE WHEN ph.amount < 0 THEN ABS(ph.amount) ELSE 0 END) as total_debt
+FROM customers c
+LEFT JOIN payment_history ph ON c.id = ph.customer_id
+WHERE c.user_id = 'user_id'
+GROUP BY c.id, c.name, c.outstanding_balance
+ORDER BY c.outstanding_balance DESC;
+
+================================================================================
+DATA INTEGRITY & CONSTRAINTS
+================================================================================
+
+1. Foreign Key Constraints:
+   - sale_items.sale_id → sales.id (CASCADE on delete)
+   - sale_items.product_id → products.id (RESTRICT on delete)
+   - sales.customer_id → customers.id (SET NULL on delete)
+   - payment_history.customer_id → customers.id (CASCADE on delete)
+   - customer_loans.customer_id → customers.id (CASCADE on delete)
+   - customer_loans.sale_id → sales.id (SET NULL on delete)
+
+2. Business Rules:
+   - stock_quantity cannot be negative
+   - outstanding_balance should be >= 0
+   - sale_items.quantity must be > 0
+   - sale_items.total_price = quantity * unit_price
+   - All timestamps should be in UTC
+
+3. Indexes for Performance:
+   - All user_id columns are indexed for multi-tenant queries
+   - Foreign key columns are indexed
+   - Date columns used in queries are indexed
+   - Name columns used in searches are indexed
+
+================================================================================
+MIGRATION FROM INDEXEDDB TO SQL
+================================================================================
+
+If migrating from IndexedDB to SQL database:
+
+1. Export data from IndexedDB:
+   - Use browser DevTools → Application → IndexedDB
+   - Export each object store as JSON
+
+2. Transform data:
+   - Ensure all IDs are valid UUIDs or strings
+   - Convert dates to proper SQL TIMESTAMP format
+   - Handle NULL values appropriately
+
+3. Import to SQL:
+   - Use the INSERT statements above
+   - Import in order: customers → products → sales → sale_items → payment_history → customer_loans
+
+4. Verify data:
+   - Check record counts match
+   - Verify foreign key relationships
+   - Test common queries
+
+================================================================================
+BACKUP & RESTORE
+================================================================================
+
+BACKUP:
+-------
+-- Export all data
+mysqldump -u username -p pharmacy_db > backup.sql
+
+-- Or for PostgreSQL
+pg_dump -U username pharmacy_db > backup.sql
+
+RESTORE:
+--------
+-- MySQL
+mysql -u username -p pharmacy_db < backup.sql
+
+-- PostgreSQL
+psql -U username pharmacy_db < backup.sql
+
+================================================================================
+NOTES
+================================================================================
+
+1. The application uses IndexedDB which is browser-based and doesn't require
+   a server-side database.
+
+2. All user_id fields ensure multi-tenant data isolation.
+
+3. Timestamps are stored as ISO 8601 strings in IndexedDB, but should be
+   TIMESTAMP in SQL databases.
+
+4. Decimal values (price, amount) should use DECIMAL(10,2) for precision.
+
+5. The database supports multiple users with complete data isolation.
+
+6. For production SQL deployment, consider:
+   - Adding database-level constraints
+   - Implementing triggers for balance updates
+   - Adding audit logging
+   - Setting up automated backups
+   - Implementing row-level security (RLS)
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+

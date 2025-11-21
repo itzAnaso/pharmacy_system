@@ -77,4 +77,4 @@ This project is for local use.
 
 ---
 
-**Made by M.ABUBAKKAR**
+**Made by TEAM[Muhammad Abubakkar,Adan Mirza,Ali jaffer,Amun Masud,Ayesha,Sumaiya Binte Rizwan**
